@@ -36,11 +36,12 @@
     filter: blur(90px);
     opacity: .55;
     will-change: transform, scale;
+    transition: background 1.5s;
     scale: calc(1 + var(--pulse, 0) * .35);
   }
-  .blob.a { background: #1d3a6b; top: -20%; left: -15%; animation: driftA 26s ease-in-out infinite alternate; }
-  .blob.b { background: #3b1d4a; bottom: -25%; right: -15%; animation: driftB 32s ease-in-out infinite alternate; }
-  .blob.c { background: #7a1220; width: 35vmax; height: 35vmax; top: 35%; left: 40%; opacity: .35; animation: driftC 22s ease-in-out infinite alternate; }
+  .blob.a { background: var(--c1, #1d3a6b); top: -20%; left: -15%; animation: driftA 26s ease-in-out infinite alternate; }
+  .blob.b { background: var(--c2, #3b1d4a); bottom: -25%; right: -15%; animation: driftB 32s ease-in-out infinite alternate; }
+  .blob.c { background: var(--c3, #7a1220); width: 35vmax; height: 35vmax; top: 35%; left: 40%; opacity: .35; animation: driftC 22s ease-in-out infinite alternate; }
   @keyframes driftA { to { transform: translate(25vw, 20vh) scale(1.2); } }
   @keyframes driftB { to { transform: translate(-30vw, -15vh) scale(.9); } }
   @keyframes driftC { to { transform: translate(-20vw, 15vh) scale(1.3); } }
@@ -132,11 +133,12 @@
     <div>
       <div id="status" class="status" role="status">digite um usuário e clique em gerar.</div>
       <canvas id="cv" hidden></canvas>
-      <button id="dl" class="dl" hidden>baixar PNG</button>
+      <button id="dl" class="dl" hidden>baixar PNG (alta resolução)</button>
       <div id="media" class="media" hidden>
         <div class="track" id="trackInfo"></div>
         <div class="row">
           <button id="mute" class="ghost">silenciar</button>
+          <button id="share" class="ghost">copiar link</button>
           <button data-fmt="9x16">vídeo 9:16</button>
           <button data-fmt="1x1">vídeo 1:1</button>
         </div>
@@ -162,7 +164,7 @@
 <script>
 const $ = (s) => document.querySelector(s);
 const cv = $('#cv'), ctx = cv.getContext('2d');
-const OUT = 1500; // largura final do PNG
+let OUT = 1500; // largura da colagem na tela (o download usa 3000)
 let albums = [], imgs = [], n = 5;
 
 const proxied = (u) => `/api/img?url=${encodeURIComponent(u)}`;
@@ -201,6 +203,8 @@ async function generate() {
     draw();
     highlight(0);
     loadTrack(user);
+    if (imgs[0]) setPalette(paletteFrom(imgs[0]));
+    history.replaceState(null, '', `?user=${encodeURIComponent(user)}&period=${$('#period').value}&size=${n}`);
   } catch (e) {
     setStatus(e.message, true);
     cv.hidden = $('#dl').hidden = $('#media').hidden = $('#feature').hidden = true;
@@ -219,6 +223,7 @@ function draw() {
   const t = OUT / n;                       // tamanho de cada capa
   const fs = Math.max(t * 0.075, 11);      // fonte proporcional
   cv.width = cv.height = OUT;
+  ctx.imageSmoothingQuality = 'high';
   const showText = $('#showText').checked, showPlays = $('#showPlays').checked;
 
   albums.forEach((a, i) => {
@@ -261,19 +266,21 @@ cv.addEventListener('click', (e) => {
   const r = cv.getBoundingClientRect();
   const col = Math.floor(((e.clientX - r.left) / r.width) * n);
   const row = Math.floor(((e.clientY - r.top) / r.height) * n);
-  highlight(row * n + col);
+  const i = row * n + col; highlight(i); playAlbum(i);
 });
 
 /* ---------- ÁUDIO + VÍDEO ---------- */
-let ac, mainGain, analyser, mainSrc, track = null, buf = null, muted = false, gen = 0;
-const DUR = 15; // segundos de vídeo
+let ac, mainGain, analyser, mainSrc, srcGain, pal = ['29,58,107', '70,30,90', '170,20,40'], track = null, buf = null, muted = false, gen = 0;
+const DUR = 15;      // segundos de vídeo
+const VOL = 0.3;     // volume geral (0 a 1)
+const FADE = 4;      // segundos pra música entrar
 const FMT = { '9x16': [1080, 1920], '1x1': [1080, 1080] };
 
 function initAudio() {
   if (!ac) {
     ac = new (window.AudioContext || window.webkitAudioContext)();
     analyser = ac.createAnalyser(); analyser.fftSize = 256;
-    mainGain = ac.createGain();
+    mainGain = ac.createGain(); mainGain.gain.value = VOL;
     analyser.connect(mainGain); mainGain.connect(ac.destination);
     pulseLoop();
   }
@@ -301,8 +308,7 @@ async function loadTrack(user) {
     const decoded = await ac.decodeAudioData(ab);
     if (me !== gen) return;
     buf = decoded;
-    mainSrc = ac.createBufferSource(); mainSrc.buffer = buf; mainSrc.loop = true;
-    mainSrc.connect(analyser); mainSrc.start();
+    playBuf(buf);
   } catch { /* sem áudio: o site continua funcionando */ }
 }
 
@@ -315,7 +321,7 @@ function fitOn(c, text, maxW) {
 function paintFrame(c, W, H, t, p, user, per) {
   // fundo: 3 manchas que andam e crescem com o grave
   c.fillStyle = '#07080c'; c.fillRect(0, 0, W, H);
-  [['29,58,107', .2, .2, .6, 1], ['70,30,90', .8, .85, .6, .7], ['170,20,40', .5, .55, .4, 1.1]].forEach(([rgb, x, y, r, sp], i) => {
+  [[pal[0], .2, .2, .6, 1], [pal[1], .8, .85, .6, .7], [pal[2], .5, .55, .4, 1.1]].forEach(([rgb, x, y, r, sp], i) => {
     const cx = W * (x + Math.sin(t * .4 * sp + i * 2) * .2), cy = H * (y + Math.cos(t * .35 * sp + i) * .15);
     const rad = Math.max(W, H) * r * (1 + p * .35);
     const g = c.createRadialGradient(cx, cy, 0, cx, cy, rad);
@@ -363,12 +369,17 @@ async function exportVideo(fmt) {
     const dest = ac.createMediaStreamDestination();
     an = ac.createAnalyser(); an.fftSize = 256;
     src = ac.createBufferSource(); src.buffer = buf;
-    src.connect(an); an.connect(dest);
+    const eg = ac.createGain(), T = ac.currentTime;   // fade de 1s no começo e no fim
+    eg.gain.setValueAtTime(0, T); eg.gain.linearRampToValueAtTime(1, T + 1);
+    eg.gain.setValueAtTime(1, T + DUR - 1); eg.gain.linearRampToValueAtTime(0, T + DUR);
+    src.connect(eg); eg.connect(an); an.connect(dest);
     stream.addTrack(dest.stream.getAudioTracks()[0]);
   }
   mainGain.gain.value = 0; // não toca em dobro nos alto-falantes enquanto grava
-  const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].find((m) => MediaRecorder.isTypeSupported(m));
-  const mr = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 6e6 }), chunks = [];
+  const mime = ['video/mp4;codecs=avc1.640028,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4',
+    'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].find((m) => MediaRecorder.isTypeSupported(m));
+  const ext = mime.startsWith('video/mp4') ? 'mp4' : 'webm';
+  const mr = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8e6 }), chunks = [];
   mr.ondataavailable = (e) => e.data.size && chunks.push(e.data);
   const stopped = new Promise((r) => (mr.onstop = r));
 
@@ -386,30 +397,106 @@ async function exportVideo(fmt) {
   mr.stop(); try { src && src.stop(); } catch {}
   await stopped;
 
-  mainGain.gain.value = muted ? 0 : 1;
+  mainGain.gain.value = muted ? 0 : VOL;
   btns.forEach((b) => (b.disabled = false));
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob(chunks, { type: 'video/webm' }));
-  a.download = `weekfm-${user}-${fmt}.webm`; a.click();
-  $('#expHint').textContent = 'pronto! o arquivo é .webm (veja no README como converter pra mp4).';
+  a.href = URL.createObjectURL(new Blob(chunks, { type: mime.split(';')[0] }));
+  a.download = `weekfm-${user}-${fmt}.${ext}`; a.click();
+  $('#expHint').textContent = ext === 'mp4' ? 'pronto! vídeo MP4 em Full HD baixado.' : 'pronto! seu navegador só gravou .webm. Chrome ou Edge atualizados gravam MP4.';
 }
 
 document.querySelectorAll('[data-fmt]').forEach((b) => b.addEventListener('click', () => exportVideo(b.dataset.fmt)));
 $('#mute').addEventListener('click', () => {
-  muted = !muted; mainGain.gain.value = muted ? 0 : 1;
+  muted = !muted; mainGain.gain.value = muted ? 0 : VOL;
   $('#mute').textContent = muted ? 'ligar som' : 'silenciar';
 });
+
+/* ---------- CORES DA CAPA ---------- */
+function paletteFrom(im) {
+  const S = 24, t = document.createElement('canvas'); t.width = t.height = S;
+  const x = t.getContext('2d', { willReadFrequently: true }); x.drawImage(im, 0, 0, S, S);
+  const d = x.getImageData(0, 0, S, S).data, bins = {};
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i + 1], b = d[i + 2], k = (r >> 5) + ',' + (g >> 5) + ',' + (b >> 5);
+    const w = Math.max(r, g, b) - Math.min(r, g, b) + 12;         // cores vivas pesam mais
+    const o = (bins[k] = bins[k] || { r: 0, g: 0, b: 0, w: 0 });
+    o.r += r * w; o.g += g * w; o.b += b * w; o.w += w;
+  }
+  const cols = Object.values(bins).sort((a, b) => b.w - a.w).map((o) => [o.r / o.w, o.g / o.w, o.b / o.w]);
+  const out = [];
+  for (const c of cols) {
+    if (out.every((o) => Math.abs(o[0] - c[0]) + Math.abs(o[1] - c[1]) + Math.abs(o[2] - c[2]) > 120)) out.push(c);
+    if (out.length === 3) break;
+  }
+  while (out.length < 3) out.push(out[0] || [40, 60, 110]);
+  return out.map((c) => { const k = 130 / Math.max(...c, 1); return c.map((v) => Math.round(v * k)).join(','); });
+}
+function setPalette(p) {
+  pal = p;
+  p.forEach((c, i) => document.documentElement.style.setProperty('--c' + (i + 1), `rgb(${c})`));
+}
+
+/* ---------- TOCAR COM FADE ---------- */
+function playBuf(b) {
+  const old = mainSrc, oldG = srcGain, t = ac.currentTime;
+  if (old) { oldG.gain.setTargetAtTime(0, t, .2); setTimeout(() => { try { old.stop(); } catch {} }, 1500); }
+  srcGain = ac.createGain();
+  srcGain.gain.setValueAtTime(0, t);
+  srcGain.gain.linearRampToValueAtTime(1, t + FADE);   // entra devagar
+  mainSrc = ac.createBufferSource(); mainSrc.buffer = b; mainSrc.loop = true;
+  mainSrc.connect(srcGain); srcGain.connect(analyser); mainSrc.start();
+}
+
+async function playAlbum(i) {
+  const a = albums[i]; if (!a || !ac) return;
+  ac.resume();
+  const me = ++gen;
+  try {
+    const j = await (await fetch(`/api/preview?artist=${encodeURIComponent(a.artist)}&album=${encodeURIComponent(a.name)}`)).json();
+    if (me !== gen) return;
+    if (!j.preview) { $('#trackInfo').textContent = `♪ sem prévia pra "${a.name}"`; return; }
+    const b = await ac.decodeAudioData(await (await fetch('/api/audio?url=' + encodeURIComponent(j.preview))).arrayBuffer());
+    if (me !== gen) return;
+    $('#trackInfo').textContent = `♪ ${j.name} — ${a.artist}`;
+    playBuf(b);
+  } catch { /* segue sem áudio */ }
+}
 
 $('#go').addEventListener('click', generate);
 $('#user').addEventListener('keydown', (e) => e.key === 'Enter' && generate());
 $('#showText').addEventListener('change', () => albums.length && draw());
 $('#showPlays').addEventListener('change', () => albums.length && draw());
-$('#dl').addEventListener('click', () => {
+$('#dl').addEventListener('click', async () => {
+  const btn = $('#dl'), label = btn.textContent;
+  btn.disabled = true; btn.textContent = 'preparando…';
+  const small = imgs;
+  // tenta capas maiores (770px); se alguma falhar, usa a de 300px que já temos
+  const big = await Promise.all(albums.map((a, i) => loadImg(a.cover.replace('/300x300/', '/770x0/')).then((im) => im || small[i])));
+  imgs = big; OUT = 3000; draw();
+  const url = cv.toDataURL('image/png');
+  imgs = small; OUT = 1500; draw();
   const a = document.createElement('a');
   a.download = `weekfm-${$('#user').value.trim()}.png`;
-  a.href = cv.toDataURL('image/png');
-  a.click();
+  a.href = url; a.click();
+  btn.disabled = false; btn.textContent = label;
 });
+$('#share').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(location.href); $('#expHint').textContent = 'link copiado!'; }
+  catch { $('#expHint').textContent = 'copie o endereço na barra do navegador.'; }
+});
+
+// abre direto a colagem se o link tiver ?user=
+const qp = new URLSearchParams(location.search);
+if (qp.get('user')) {
+  $('#user').value = qp.get('user');
+  if (qp.get('period')) $('#period').value = qp.get('period');
+  if (qp.get('size')) $('#size').value = qp.get('size');
+  if (!$('#period').value) $('#period').value = '7day';
+  if (!$('#size').value) $('#size').value = '5';
+  document.addEventListener('click', () => ac && ac.resume(), { once: true }); // navegador só libera som após um clique
+  generate();
+}
 </script>
 </body>
+
 </html>
