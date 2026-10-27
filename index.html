@@ -96,6 +96,7 @@
   .media .row { display: flex; gap: 8px; flex-wrap: wrap; }
   .media .track { font-size: .9rem; }
   .ghost { background: #1a1c24; border: 1px solid #2c2f3b; }
+  #wcv { width: auto; max-width: 100%; max-height: 78vh; margin: 0 auto; }
   .story { background: linear-gradient(45deg, #f58529, #dd2a7b, #8134af); }
   .hint { color: var(--muted); font-size: .8rem; }
   footer { text-align: center; color: #555a6b; font-size: .75rem; margin-top: 48px; }
@@ -134,11 +135,13 @@
     <div>
       <div id="status" class="status" role="status">digite um usuário e clique em gerar.</div>
       <canvas id="cv" hidden></canvas>
+      <canvas id="wcv" width="1080" height="1920" hidden></canvas>
       <button id="dl" class="dl" hidden>baixar PNG (alta resolução)</button>
       <div id="media" class="media" hidden>
         <div class="track" id="trackInfo"></div>
         <div class="row">
           <button id="mute" class="ghost">silenciar</button>
+          <button id="wrap" class="ghost">modo Wrapped</button>
           <button id="share" class="ghost">copiar link</button>
           <button id="story" class="story">vídeo para Stories</button>
           <button data-fmt="9x16">vídeo 9:16</button>
@@ -192,6 +195,7 @@ async function generate() {
   $('#go').disabled = true;
   initAudio();
   resetStory();
+  setWrapped(false); wimgs = null;
   setStatus('carregando…');
   try {
     const r = await fetch(`/api/albums?user=${encodeURIComponent(user)}&period=${$('#period').value}&limit=${n * n}`);
@@ -321,16 +325,20 @@ function fitOn(c, text, maxW) {
   return text.trimEnd() + '…';
 }
 
-function paintFrame(c, W, H, t, p, user, per) {
+function paintBg(c, W, H, t, p, pl) {
   // fundo: 3 manchas que andam e crescem com o grave
   c.fillStyle = '#07080c'; c.fillRect(0, 0, W, H);
-  [[pal[0], .2, .2, .6, 1], [pal[1], .8, .85, .6, .7], [pal[2], .5, .55, .4, 1.1]].forEach(([rgb, x, y, r, sp], i) => {
+  [[pl[0], .2, .2, .6, 1], [pl[1], .8, .85, .6, .7], [pl[2], .5, .55, .4, 1.1]].forEach(([rgb, x, y, r, sp], i) => {
     const cx = W * (x + Math.sin(t * .4 * sp + i * 2) * .2), cy = H * (y + Math.cos(t * .35 * sp + i) * .15);
     const rad = Math.max(W, H) * r * (1 + p * .35);
     const g = c.createRadialGradient(cx, cy, 0, cx, cy, rad);
     g.addColorStop(0, `rgba(${rgb},.8)`); g.addColorStop(1, `rgba(${rgb},0)`);
     c.fillStyle = g; c.fillRect(0, 0, W, H);
   });
+}
+
+function paintFrame(c, W, H, t, p, user, per) {
+  paintBg(c, W, H, t, p, pal);
 
   const tall = H > W, size = tall ? 880 : 740, x = (W - size) / 2, y = tall ? 370 : 135;
   // logo
@@ -358,7 +366,8 @@ function paintFrame(c, W, H, t, p, user, per) {
   if (tall) { c.font = '500 34px "DM Sans", sans-serif'; c.fillStyle = 'rgba(255,255,255,.85)'; c.fillText(`faça a sua em ${location.host}`, W / 2, 1565); }
 }
 
-async function exportVideo(fmt, forStory = false) {
+async function exportVideo(fmt, forStory = false, mode = 'normal') {
+  const D = mode === 'wrapped' ? wrapDur() : DUR;
   if (!albums.length) return;
   if (!window.MediaRecorder) return ($('#expHint').textContent = 'seu navegador não grava vídeo. Use Chrome, Edge ou Firefox.');
   const [W, H] = FMT[fmt], user = $('#user').value.trim(), per = $('#period').selectedOptions[0].text;
@@ -366,6 +375,7 @@ async function exportVideo(fmt, forStory = false) {
   await document.fonts.load('600 40px Fraunces'); await document.fonts.load('700 40px "DM Sans"');
   initAudio();
 
+  if (mode === 'wrapped') await prepWrapped();
   const vc = document.createElement('canvas'); vc.width = W; vc.height = H;
   const c = vc.getContext('2d'), stream = vc.captureStream(30);
   let src = null, an = analyser;
@@ -375,7 +385,7 @@ async function exportVideo(fmt, forStory = false) {
     src = ac.createBufferSource(); src.buffer = buf;
     const eg = ac.createGain(), T = ac.currentTime;   // fade de 1s no começo e no fim
     eg.gain.setValueAtTime(0, T); eg.gain.linearRampToValueAtTime(1, T + 1);
-    eg.gain.setValueAtTime(1, T + DUR - 1); eg.gain.linearRampToValueAtTime(0, T + DUR);
+    eg.gain.setValueAtTime(1, T + D - 1); eg.gain.linearRampToValueAtTime(0, T + D);
     src.connect(eg); eg.connect(an); an.connect(dest);
     stream.addTrack(dest.stream.getAudioTracks()[0]);
   }
@@ -392,9 +402,9 @@ async function exportVideo(fmt, forStory = false) {
   await new Promise((done) => {
     const tick = () => {
       const t = (performance.now() - t0) / 1000;
-      paintFrame(c, W, H, t, src ? level(an) : 0, user, per);
-      $('#expHint').textContent = `gravando… mantenha esta aba aberta (${Math.ceil(DUR - t)}s)`;
-      t < DUR ? requestAnimationFrame(tick) : done();
+      (mode === 'wrapped' ? paintWrapped : paintFrame)(c, W, H, t, src ? level(an) : 0, user, per);
+      $('#expHint').textContent = `gravando… mantenha esta aba aberta (${Math.ceil(D - t)}s)`;
+      t < D ? requestAnimationFrame(tick) : done();
     };
     tick();
   });
@@ -403,14 +413,14 @@ async function exportVideo(fmt, forStory = false) {
 
   mainGain.gain.value = muted ? 0 : VOL;
   btns.forEach((b) => (b.disabled = false));
-  const name = `weekfm-${user}-${fmt}.${ext}`, file = new File(chunks, name, { type: mime.split(';')[0] });
+  const name = `weekfm-${user}-${mode === 'wrapped' ? 'wrapped-' : ''}${fmt}.${ext}`, file = new File(chunks, name, { type: mime.split(';')[0] });
   if (forStory) { storyFile = file; setStoryReady(); return; }   // no celular o envio exige um toque novo
   const a = document.createElement('a');
   a.href = URL.createObjectURL(file); a.download = name; a.click();
   $('#expHint').textContent = ext === 'mp4' ? 'pronto! vídeo MP4 em Full HD baixado.' : 'pronto! seu navegador só gravou .webm. Chrome ou Edge atualizados gravam MP4.';
 }
 
-document.querySelectorAll('[data-fmt]').forEach((b) => b.addEventListener('click', () => exportVideo(b.dataset.fmt)));
+document.querySelectorAll('[data-fmt]').forEach((b) => b.addEventListener('click', () => exportVideo(b.dataset.fmt, false, wrapOn ? 'wrapped' : 'normal')));
 $('#mute').addEventListener('click', () => {
   muted = !muted; mainGain.gain.value = muted ? 0 : VOL;
   $('#mute').textContent = muted ? 'ligar som' : 'silenciar';
@@ -475,7 +485,7 @@ function setStoryReady() {
 }
 function resetStory() { storyFile = null; $('#story').textContent = 'vídeo para Stories'; }
 $('#story').addEventListener('click', async () => {
-  if (!storyFile) return exportVideo('9x16', true);      // 1º toque: grava
+  if (!storyFile) return exportVideo('9x16', true, wrapOn ? 'wrapped' : 'normal');      // 1º toque: grava
   try { navigator.clipboard.writeText(location.origin).catch(() => {}); } catch {}
   try {                                                  // 2º toque: abre o compartilhamento do celular
     if (navigator.canShare && navigator.canShare({ files: [storyFile] })) await navigator.share({ files: [storyFile] });
@@ -487,6 +497,76 @@ $('#story').addEventListener('click', async () => {
     if (e.name !== 'AbortError') $('#expHint').textContent = 'não deu pra abrir o compartilhamento. Baixe o vídeo e envie pelo Instagram.';
   }
 });
+
+/* ---------- MODO WRAPPED ---------- */
+const WRAP = { intro: 2, slot: 3, outro: 3 };   // segundos
+const wrapSlots = () => Math.min(5, albums.length);
+const wrapDur = () => WRAP.intro + wrapSlots() * WRAP.slot + WRAP.outro;
+const ease = (x) => 1 - Math.pow(1 - Math.min(Math.max(x, 0), 1), 3);
+let wrapOn = false, wT0 = 0, wimgs = null, wpal = [];
+const wc = $('#wcv').getContext('2d');
+
+async function prepWrapped() {            // capas maiores + cores de cada álbum
+  if (wimgs) return;
+  wimgs = await Promise.all(albums.slice(0, 5).map((a, i) => loadImg(a.cover.replace('/300x300/', '/770x0/')).then((im) => im || imgs[i])));
+  wpal = wimgs.map((im) => (im ? paletteFrom(im) : pal));
+  await document.fonts.load('600 40px Fraunces'); await document.fonts.load('700 40px "DM Sans"');
+}
+
+function paintWrapped(c, W, H, t, p, user, per) {
+  const n = wrapSlots(), tall = H > W, body = t - WRAP.intro, slot = Math.floor(body / WRAP.slot);
+  let fade = 0;                              // 1 = preto
+  c.textAlign = 'center';
+  if (t >= WRAP.intro + n * WRAP.slot) {     // final: colagem completa
+    paintFrame(c, W, H, t, p, user, per);
+    fade = 1 - ease((t - WRAP.intro - n * WRAP.slot) / .5);
+  } else if (t < WRAP.intro) {               // abertura
+    paintBg(c, W, H, t, p, wpal[0] || pal);
+    let fs = tall ? 150 : 110;
+    c.font = `600 ${fs}px Fraunces, serif`;
+    while (c.measureText(user).width > W - 120 && fs > 40) { fs -= 6; c.font = `600 ${fs}px Fraunces, serif`; }
+    c.fillStyle = '#fff'; c.fillText(user, W / 2, H / 2 - 20);
+    c.font = `400 ${tall ? 46 : 36}px "DM Sans", sans-serif`; c.fillStyle = 'rgba(255,255,255,.75)';
+    c.fillText(fitOn(c, `seus álbuns mais ouvidos · ${per}`, W - 120), W / 2, H / 2 + 60);
+    fade = 1 - ease(t / .6);
+  } else {                                   // contagem regressiva: #5 ... #1
+    const ai = n - 1 - slot, a = albums[ai], im = wimgs[ai], lt = body - slot * WRAP.slot;
+    paintBg(c, W, H, t, p, wpal[ai] || pal);
+    const L = tall ? { ry: 480, rf: 240, y: 530, s: 740, n: 1370, a: 1432, p: 1510 } : { ry: 190, rf: 140, y: 215, s: 520, n: 810, a: 862, p: 925 };
+    const s = L.s * (.88 + .12 * ease(lt / .6)) * (1 + p * .03), x = W / 2 - s / 2, y = L.y + (L.s - s) / 2;
+    c.fillStyle = 'rgba(255,255,255,.92)'; c.font = `600 ${L.rf}px Fraunces, serif`; c.fillText(`#${ai + 1}`, W / 2, L.ry);
+    c.save(); c.beginPath(); c.roundRect(x, y, s, s, 24); c.clip();
+    if (im) c.drawImage(im, x, y, s, s); else { c.fillStyle = '#1b1d26'; c.fillRect(x, y, s, s); }
+    c.restore();
+    c.fillStyle = '#fff'; c.font = `700 ${tall ? 54 : 44}px "DM Sans", sans-serif`; c.fillText(fitOn(c, a.name, W - 120), W / 2, L.n);
+    c.fillStyle = 'rgba(255,255,255,.7)'; c.font = `400 ${tall ? 40 : 32}px "DM Sans", sans-serif`; c.fillText(fitOn(c, a.artist, W - 120), W / 2, L.a);
+    const v = Math.round(a.plays * ease(lt / 1.6));   // contador subindo
+    c.fillStyle = '#ff5566'; c.font = `700 ${tall ? 48 : 36}px "DM Sans", sans-serif`; c.fillText(`${v} ${v === 1 ? 'play' : 'plays'}`, W / 2, L.p);
+    fade = Math.max(1 - lt / .35, (lt - (WRAP.slot - .25)) / .25, 0);
+  }
+  if (fade > 0) { c.fillStyle = `rgba(7,8,12,${Math.min(fade, 1)})`; c.fillRect(0, 0, W, H); }
+}
+
+function wLoop() {
+  if (!wrapOn) return;
+  const t = ((performance.now() - wT0) / 1000) % wrapDur();
+  paintWrapped(wc, 1080, 1920, t, mainSrc ? level(analyser) : 0, $('#user').value.trim(), $('#period').selectedOptions[0].text);
+  requestAnimationFrame(wLoop);
+}
+function setWrapped(on) {
+  wrapOn = on; $('#wcv').hidden = !on; cv.hidden = on || !albums.length;
+  $('#wrap').textContent = on ? 'voltar à colagem' : 'modo Wrapped';
+  resetStory();
+  if (on) { wT0 = performance.now(); wLoop(); }
+}
+$('#wrap').addEventListener('click', async () => {
+  if (wrapOn) return setWrapped(false);
+  $('#expHint').textContent = 'preparando…';
+  await prepWrapped();
+  $('#expHint').textContent = 'toque na animação pra reiniciar. Os botões de vídeo gravam o Wrapped.';
+  setWrapped(true);
+});
+$('#wcv').addEventListener('click', () => (wT0 = performance.now()));
 
 $('#go').addEventListener('click', generate);
 $('#user').addEventListener('keydown', (e) => e.key === 'Enter' && generate());
