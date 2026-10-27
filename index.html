@@ -96,6 +96,7 @@
   .media .row { display: flex; gap: 8px; flex-wrap: wrap; }
   .media .track { font-size: .9rem; }
   .ghost { background: #1a1c24; border: 1px solid #2c2f3b; }
+  .story { background: linear-gradient(45deg, #f58529, #dd2a7b, #8134af); }
   .hint { color: var(--muted); font-size: .8rem; }
   footer { text-align: center; color: #555a6b; font-size: .75rem; margin-top: 48px; }
 </style>
@@ -139,6 +140,7 @@
         <div class="row">
           <button id="mute" class="ghost">silenciar</button>
           <button id="share" class="ghost">copiar link</button>
+          <button id="story" class="story">vídeo para Stories</button>
           <button data-fmt="9x16">vídeo 9:16</button>
           <button data-fmt="1x1">vídeo 1:1</button>
         </div>
@@ -158,7 +160,7 @@
     </aside>
   </div>
 
-  <footer>feito por Tadashi Sakairi :3</footer>
+  <footer>feito com a API do Last.fm</footer>
 </div>
 
 <script>
@@ -189,6 +191,7 @@ async function generate() {
   n = +$('#size').value;
   $('#go').disabled = true;
   initAudio();
+  resetStory();
   setStatus('carregando…');
   try {
     const r = await fetch(`/api/albums?user=${encodeURIComponent(user)}&period=${$('#period').value}&limit=${n * n}`);
@@ -329,9 +332,9 @@ function paintFrame(c, W, H, t, p, user, per) {
     c.fillStyle = g; c.fillRect(0, 0, W, H);
   });
 
-  const tall = H > W, size = tall ? 960 : 740, x = (W - size) / 2, y = tall ? 330 : 135;
+  const tall = H > W, size = tall ? 880 : 740, x = (W - size) / 2, y = tall ? 370 : 135;
   // logo
-  const f = tall ? 84 : 56, ty = tall ? 200 : 88;
+  const f = tall ? 84 : 56, ty = tall ? 330 : 88;
   c.textAlign = 'left'; c.font = `600 ${f}px Fraunces, serif`;
   const w1 = c.measureText('week').width, w2 = c.measureText('.FM').width, sx = (W - w1 - w2) / 2;
   c.fillStyle = '#fff'; c.fillText('week', sx, ty);
@@ -345,20 +348,21 @@ function paintFrame(c, W, H, t, p, user, per) {
   // textos
   c.textAlign = 'center';
   const lines = track ? [`♪ ${track.name}`, track.artist, `@${user} · ${per}`] : [`@${user}`, per];
-  let yy = y + size + (tall ? 120 : 62);
+  let yy = y + size + (tall ? 80 : 62);
   lines.forEach((s, i) => {
     const fs = (tall ? [50, 38, 32] : [34, 28, 24])[i];
     c.font = `${i ? 400 : 700} ${fs}px "DM Sans", sans-serif`;
     c.fillStyle = i ? 'rgba(255,255,255,.65)' : '#fff';
     c.fillText(fitOn(c, s, W - 120), W / 2, yy); yy += fs * 1.45;
   });
+  if (tall) { c.font = '500 34px "DM Sans", sans-serif'; c.fillStyle = 'rgba(255,255,255,.85)'; c.fillText(`faça a sua em ${location.host}`, W / 2, 1565); }
 }
 
-async function exportVideo(fmt) {
+async function exportVideo(fmt, forStory = false) {
   if (!albums.length) return;
   if (!window.MediaRecorder) return ($('#expHint').textContent = 'seu navegador não grava vídeo. Use Chrome, Edge ou Firefox.');
   const [W, H] = FMT[fmt], user = $('#user').value.trim(), per = $('#period').selectedOptions[0].text;
-  const btns = document.querySelectorAll('[data-fmt]'); btns.forEach((b) => (b.disabled = true));
+  const btns = document.querySelectorAll('[data-fmt], #story'); btns.forEach((b) => (b.disabled = true));
   await document.fonts.load('600 40px Fraunces'); await document.fonts.load('700 40px "DM Sans"');
   initAudio();
 
@@ -399,9 +403,10 @@ async function exportVideo(fmt) {
 
   mainGain.gain.value = muted ? 0 : VOL;
   btns.forEach((b) => (b.disabled = false));
+  const name = `weekfm-${user}-${fmt}.${ext}`, file = new File(chunks, name, { type: mime.split(';')[0] });
+  if (forStory) { storyFile = file; setStoryReady(); return; }   // no celular o envio exige um toque novo
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob(chunks, { type: mime.split(';')[0] }));
-  a.download = `weekfm-${user}-${fmt}.${ext}`; a.click();
+  a.href = URL.createObjectURL(file); a.download = name; a.click();
   $('#expHint').textContent = ext === 'mp4' ? 'pronto! vídeo MP4 em Full HD baixado.' : 'pronto! seu navegador só gravou .webm. Chrome ou Edge atualizados gravam MP4.';
 }
 
@@ -461,6 +466,27 @@ async function playAlbum(i) {
     playBuf(b);
   } catch { /* segue sem áudio */ }
 }
+
+/* ---------- STORIES ---------- */
+let storyFile = null;
+function setStoryReady() {
+  $('#story').textContent = 'enviar pro Instagram';
+  $('#expHint').textContent = 'vídeo pronto! Toque em "enviar pro Instagram", escolha Stories e adicione o adesivo Link. O endereço do site já fica copiado, é só colar.';
+}
+function resetStory() { storyFile = null; $('#story').textContent = 'vídeo para Stories'; }
+$('#story').addEventListener('click', async () => {
+  if (!storyFile) return exportVideo('9x16', true);      // 1º toque: grava
+  try { navigator.clipboard.writeText(location.origin).catch(() => {}); } catch {}
+  try {                                                  // 2º toque: abre o compartilhamento do celular
+    if (navigator.canShare && navigator.canShare({ files: [storyFile] })) await navigator.share({ files: [storyFile] });
+    else {
+      const a = document.createElement('a'); a.href = URL.createObjectURL(storyFile); a.download = storyFile.name; a.click();
+      $('#expHint').textContent = 'vídeo baixado. Passe pro celular, poste nos Stories e adicione o adesivo Link (o endereço já está copiado).';
+    }
+  } catch (e) {
+    if (e.name !== 'AbortError') $('#expHint').textContent = 'não deu pra abrir o compartilhamento. Baixe o vídeo e envie pelo Instagram.';
+  }
+});
 
 $('#go').addEventListener('click', generate);
 $('#user').addEventListener('keydown', (e) => e.key === 'Enter' && generate());
