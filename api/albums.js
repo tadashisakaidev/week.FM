@@ -17,6 +17,9 @@ module.exports = async (req, res) => {
   }).toString();
 
   try {
+    const iu = new URL(url); iu.searchParams.set('method', 'user.getinfo'); iu.searchParams.delete('period'); iu.searchParams.delete('limit');
+    const info = await fetch(iu).then((x) => x.json()).catch(() => ({}));
+    const avatar = (info.user?.image || []).find((i) => i.size === 'large')?.['#text'] || '';
     const r = await fetch(url);
     const data = await r.json();
     if (data.error) {
@@ -29,7 +32,7 @@ module.exports = async (req, res) => {
       return { name: a.name, artist: a.artist?.name || '', plays: Number(a.playcount) || 0, cover };
     });
     res.setHeader('Cache-Control', 's-maxage=600, stale-while-revalidate=3600');
-    res.status(200).json({ albums });
+    res.status(200).json({ albums, avatar });
   } catch {
     res.status(502).json({ error: 'falha ao falar com o Last.fm' });
   }

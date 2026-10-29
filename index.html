@@ -8,169 +8,142 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Fraunces:opsz,wght@9..144,600&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #07080c;
-    --text: #e8e8ee;
-    --muted: #8b8fa0;
-    --accent: #e11d2e;
-    --panel: rgba(255, 255, 255, .06);
-    --radius: 10px;
-  }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'DM Sans', system-ui, sans-serif;
-    min-height: 100vh;
-  }
+  :root { --bg:#07080c; --text:#ececf1; --muted:#8b8fa0; --accent:#e11d2e; --card:rgba(20,21,28,.72); --line:rgba(255,255,255,.08); }
+  * { box-sizing:border-box; }
+  html,body { margin:0; }
+  body { background:var(--bg); color:var(--text); font-family:'DM Sans',system-ui,sans-serif; min-height:100vh; padding-bottom:96px; }
+  .bg { position:fixed; inset:0; overflow:hidden; z-index:-1; }
+  .blob { position:absolute; width:55vmax; height:55vmax; border-radius:50%; filter:blur(90px); opacity:.5; will-change:transform,scale; transition:background 1.5s; scale:calc(1 + var(--pulse,0)*.35); }
+  .blob.a { background:var(--c1,#1d3a6b); top:-20%; left:-15%; animation:dA 26s ease-in-out infinite alternate; }
+  .blob.b { background:var(--c2,#3b1d4a); bottom:-25%; right:-15%; animation:dB 32s ease-in-out infinite alternate; }
+  .blob.c { background:var(--c3,#7a1220); width:35vmax; height:35vmax; top:35%; left:40%; opacity:.3; animation:dC 22s ease-in-out infinite alternate; }
+  @keyframes dA { to { transform:translate(25vw,20vh) scale(1.2); } }
+  @keyframes dB { to { transform:translate(-30vw,-15vh) scale(.9); } }
+  @keyframes dC { to { transform:translate(-20vw,15vh) scale(1.3); } }
+  @media (prefers-reduced-motion:reduce) { .blob { animation:none; } }
 
-  /* ---------- FUNDO ANIMADO ----------
-     Três "manchas" coloridas desfocadas que flutuam devagar.
-     Só usa transform => leve, roda liso até em celular. */
-  .bg { position: fixed; inset: 0; overflow: hidden; z-index: -1; }
-  .blob {
-    position: absolute;
-    width: 55vmax; height: 55vmax;
-    border-radius: 50%;
-    filter: blur(90px);
-    opacity: .55;
-    will-change: transform, scale;
-    transition: background 1.5s;
-    scale: calc(1 + var(--pulse, 0) * .35);
-  }
-  .blob.a { background: var(--c1, #1d3a6b); top: -20%; left: -15%; animation: driftA 26s ease-in-out infinite alternate; }
-  .blob.b { background: var(--c2, #3b1d4a); bottom: -25%; right: -15%; animation: driftB 32s ease-in-out infinite alternate; }
-  .blob.c { background: var(--c3, #7a1220); width: 35vmax; height: 35vmax; top: 35%; left: 40%; opacity: .35; animation: driftC 22s ease-in-out infinite alternate; }
-  @keyframes driftA { to { transform: translate(25vw, 20vh) scale(1.2); } }
-  @keyframes driftB { to { transform: translate(-30vw, -15vh) scale(.9); } }
-  @keyframes driftC { to { transform: translate(-20vw, 15vh) scale(1.3); } }
-  @media (prefers-reduced-motion: reduce) { .blob { animation: none; } }
+  .top { display:flex; align-items:center; gap:24px; padding:14px 40px; border-bottom:1px solid var(--line); background:rgba(7,8,12,.45); backdrop-filter:blur(12px); }
+  .brand { font:600 1.9rem 'Fraunces',serif; } .brand span { color:var(--accent); }
+  .brand small { font:400 .8rem 'DM Sans'; color:var(--muted); margin-left:14px; }
+  .top nav { margin-left:auto; display:flex; gap:26px; font-size:.85rem; } .top nav a { color:var(--muted); text-decoration:none; }
+  .chip { display:flex; align-items:center; gap:10px; font-size:.85rem; padding-left:24px; border-left:1px solid var(--line); }
+  .chip img, .who img { border-radius:50%; object-fit:cover; background:#222; } .chip img { width:34px; height:34px; }
 
-  /* ---------- LAYOUT ---------- */
-  .wrap { max-width: 940px; margin: 0 auto; padding: 32px 20px 56px; }
-  h1 { font: 600 2rem 'Fraunces', serif; margin: 0; letter-spacing: -.01em; }
-  h1 span { color: var(--accent); }
-  .sub { color: var(--muted); font-size: .85rem; margin: 2px 0 28px; }
+  .shell { display:grid; grid-template-columns:minmax(0,640px) minmax(0,420px) 300px; gap:28px; max-width:1420px; margin:0 auto; padding:28px 40px; align-items:start; }
+  @media (max-width:1250px) { .shell { grid-template-columns:minmax(0,1fr) minmax(0,380px); } .export { grid-column:1/-1; } }
+  @media (max-width:820px) { .shell { grid-template-columns:1fr; padding:20px 16px; } .top { padding:12px 16px; } .top nav,.brand small { display:none; } .chip { margin-left:auto; border:0; padding:0; } }
 
-  .controls { display: flex; gap: 8px; flex-wrap: wrap; }
-  .controls input, .controls select {
-    height: 38px; border-radius: 6px; border: 0; font: inherit; font-size: .9rem; padding: 0 12px;
-  }
-  .controls input { flex: 1 1 220px; background: #e8eefc; color: #111; }
-  .controls select { background: #1a1c24; color: var(--text); border: 1px solid #2c2f3b; }
-  button {
-    font: inherit; font-weight: 700; font-size: .9rem; color: #fff; background: var(--accent);
-    border: 0; border-radius: 6px; padding: 0 16px; height: 38px; cursor: pointer;
-  }
-  button:hover { filter: brightness(1.12); }
-  button:disabled { opacity: .5; cursor: wait; }
-  :focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  .controls { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:22px; }
+  .controls input,.controls select { height:38px; border-radius:8px; border:1px solid #2c2f3b; font:inherit; font-size:.9rem; padding:0 12px; background:#14151c; color:var(--text); }
+  .controls input { flex:1 1 200px; }
+  button { font:inherit; font-weight:700; font-size:.88rem; color:#fff; background:var(--accent); border:0; border-radius:8px; padding:0 16px; height:38px; cursor:pointer; }
+  button:hover { filter:brightness(1.12); } button:disabled { opacity:.5; cursor:wait; }
+  .ghost { background:transparent; border:1px solid #33364a; color:var(--text); }
+  .story { background:linear-gradient(45deg,#f58529,#dd2a7b,#8134af); }
+  :focus-visible { outline:2px solid #fff; outline-offset:2px; }
 
-  .toggles { display: flex; gap: 18px; margin: 18px 0 12px; font-size: .88rem; color: var(--muted); }
-  .toggles label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-  .toggles input { accent-color: var(--accent); }
+  .who { display:flex; align-items:center; gap:14px; font-size:.85rem; } .who img { width:52px; height:52px; }
+  .who b { display:block; font-size:.95rem; } .who span { color:var(--muted); }
+  h1 { font:600 2.7rem/1.1 'Fraunces',serif; margin:14px 0 8px; letter-spacing:-.01em; }
+  .stats-line { color:var(--muted); font-size:.95rem; margin-bottom:20px; } .stats-line i { margin:0 10px; opacity:.5; font-style:normal; }
+  canvas { width:100%; height:auto; display:block; border-radius:4px; background:#111; cursor:pointer; }
+  #wcv { width:auto; max-width:100%; max-height:78vh; margin:0 auto; }
+  .status { color:var(--muted); font-size:.9rem; padding:40px 0; } .status.err { color:#ff6b78; }
 
-  .main { display: grid; grid-template-columns: minmax(0, 500px) minmax(0, 1fr); gap: 28px; align-items: start; }
-  @media (max-width: 800px) { .main { grid-template-columns: 1fr; } }
+  .card { background:var(--card); backdrop-filter:blur(14px); border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:16px; }
+  .card h3 { margin:0 0 14px; font-size:1rem; } .muted { color:var(--muted); }
+  .feature { display:flex; gap:18px; align-items:center; }
+  .feature img { width:150px; height:150px; border-radius:4px; object-fit:cover; background:#222; flex:none; }
+  .feature .rank { color:var(--muted); font-size:.85rem; } .feature h2 { font:600 1.9rem/1.1 'Fraunces',serif; margin:4px 0; }
+  .feature .plays { color:#ff5566; font-weight:700; margin:8px 0 12px; }
+  .feature a { display:inline-block; background:#1d1f29; border:1px solid #33364a; color:#fff; text-decoration:none; font-weight:700; font-size:.85rem; padding:9px 14px; border-radius:8px; }
+  .quote { font:italic 1rem/1.5 'Fraunces',serif; margin:0; } .quote small { display:block; font:.8rem 'DM Sans'; color:var(--muted); margin-top:10px; }
+  .nums { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; text-align:left; } .nums b { display:block; font-size:1.5rem; } .nums span { color:var(--muted); font-size:.8rem; }
+  .swatches { display:flex; gap:14px; margin-bottom:16px; } .swatches button { width:38px; height:38px; border-radius:50%; padding:0; border:2px solid transparent; }
+  .swatches button:focus-visible,.swatches button:hover { border-color:#fff; }
+  .tg { display:flex; justify-content:space-between; align-items:center; padding:8px 0; font-size:.88rem; color:var(--muted); cursor:pointer; }
+  .tg input { accent-color:var(--accent); width:18px; height:18px; }
 
-  canvas { width: 100%; height: auto; display: block; border-radius: 4px; background: #111; cursor: pointer; }
-  .status { color: var(--muted); font-size: .9rem; padding: 40px 0; }
-  .status.err { color: #ff6b78; }
-  .dl { margin-top: 14px; }
+  .export { position:sticky; top:20px; } .export h2 { font:600 1.4rem 'Fraunces',serif; margin:0 0 14px; }
+  .export .card { padding:16px; } .export .card b { display:block; margin-bottom:4px; } .export .card p { margin:0 0 12px; color:var(--muted); font-size:.8rem; }
+  .export .card button { width:100%; margin-top:6px; } .hint { color:var(--muted); font-size:.8rem; }
 
-  /* ---------- DESTAQUE ---------- */
-  .feature {
-    background: var(--panel); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-    border-radius: 14px; padding: 22px; display: flex; gap: 18px; align-items: flex-end;
-  }
-  .feature img { width: 100px; height: 100px; border-radius: 4px; object-fit: cover; background: #222; flex: none; }
-  .feature .rank { color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
-  .feature h2 { font-size: 1.15rem; margin: 0 0 2px; }
-  .feature .artist { color: var(--muted); font-size: .9rem; }
-  .feature .plays { color: #ff6b78; font-weight: 700; font-size: .85rem; margin: 8px 0 12px; }
-  .feature a { display: inline-block; background: var(--accent); color: #fff; text-decoration: none; font-weight: 700; font-size: .85rem; padding: 9px 14px; border-radius: 6px; }
-  [hidden] { display: none !important; }
-
-  .media { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
-  .media .row { display: flex; gap: 8px; flex-wrap: wrap; }
-  .media .track { font-size: .9rem; }
-  .ghost { background: #1a1c24; border: 1px solid #2c2f3b; }
-  #wcv { width: auto; max-width: 100%; max-height: 78vh; margin: 0 auto; }
-  .story { background: linear-gradient(45deg, #f58529, #dd2a7b, #8134af); }
-  .hint { color: var(--muted); font-size: .8rem; }
-  footer { text-align: center; color: #555a6b; font-size: .75rem; margin-top: 48px; }
+  .player { position:fixed; left:50%; bottom:14px; transform:translateX(-50%); width:min(980px,calc(100% - 24px)); display:none; align-items:center; gap:16px; padding:10px 18px; background:rgba(20,21,28,.88); backdrop-filter:blur(16px); border:1px solid var(--line); border-radius:16px; z-index:5; }
+  body.ready .player { display:flex; }
+  .player img { width:46px; height:46px; border-radius:4px; object-fit:cover; background:#222; }
+  #trackInfo { flex:1 1 0; min-width:0; font-size:.88rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .player .ctl { display:flex; gap:8px; } .player .ctl button { width:40px; padding:0; background:#1d1f29; border-radius:50%; } .player #mute { background:#fff; color:#000; }
+  .bar { flex:1 1 200px; height:4px; background:#2c2f3b; border-radius:2px; } .bar i { display:block; height:100%; width:0; background:var(--accent); border-radius:2px; }
+  @media (max-width:820px) { .bar { display:none; } }
+  [hidden] { display:none !important; }
 </style>
 </head>
 <body>
 <div class="bg" aria-hidden="true"><div class="blob a"></div><div class="blob b"></div><div class="blob c"></div></div>
 
-<div class="wrap">
-  <h1>week<span>.FM</span></h1>
-  <p class="sub">gera colagem com seus álbuns mais ouvidos</p>
+<header class="top">
+  <div class="brand">week<span>.FM</span><small>sua retrospectiva musical</small></div>
+  <nav><a href="/">Início</a><a href="https://www.last.fm" target="_blank" rel="noopener">Last.fm</a></nav>
+  <div class="chip"><img id="chipImg" alt="" hidden><span id="chipName">visitante</span></div>
+</header>
 
-  <div class="controls">
-    <input id="user" placeholder="seu usuário do Last.fm" autocomplete="off" spellcheck="false" aria-label="usuário do Last.fm">
-    <select id="period" aria-label="período">
-      <option value="7day">7 dias</option>
-      <option value="1month">1 mês</option>
-      <option value="3month">3 meses</option>
-      <option value="6month">6 meses</option>
-      <option value="12month">12 meses</option>
-      <option value="overall">sempre</option>
-    </select>
-    <select id="size" aria-label="tamanho da grade">
-      <option value="3">3x3</option><option value="4">4x4</option>
-      <option value="5" selected>5x5</option><option value="6">6x6</option><option value="7">7x7</option>
-    </select>
-    <button id="go">gerar</button>
-  </div>
-
-  <div class="toggles">
-    <label><input type="checkbox" id="showText" checked> mostrar texto</label>
-    <label><input type="checkbox" id="showPlays" checked> mostrar plays</label>
-  </div>
-
-  <div class="main">
-    <div>
-      <div id="status" class="status" role="status">digite um usuário e clique em gerar.</div>
-      <canvas id="cv" hidden></canvas>
-      <canvas id="wcv" width="1080" height="1920" hidden></canvas>
-      <button id="dl" class="dl" hidden>baixar PNG (alta resolução)</button>
-      <div id="media" class="media" hidden>
-        <div class="track" id="trackInfo"></div>
-        <div class="row">
-          <button id="mute" class="ghost">silenciar</button>
-          <button id="wrap" class="ghost">modo Wrapped</button>
-          <button id="share" class="ghost">copiar link</button>
-          <button id="story" class="story">vídeo para Stories</button>
-          <button data-fmt="9x16">vídeo 9:16</button>
-          <button data-fmt="1x1">vídeo 1:1</button>
-        </div>
-        <div class="hint" id="expHint">vídeo de 15s com o fundo animado e a música.</div>
-      </div>
+<main class="shell">
+  <section>
+    <div class="controls">
+      <input id="user" placeholder="seu usuário do Last.fm" autocomplete="off" spellcheck="false" aria-label="usuário do Last.fm">
+      <select id="period" aria-label="período"><option value="7day">7 dias</option><option value="1month">1 mês</option><option value="3month">3 meses</option><option value="6month">6 meses</option><option value="12month">12 meses</option><option value="overall">sempre</option></select>
+      <select id="size" aria-label="grade"><option value="3">3x3</option><option value="4">4x4</option><option value="5" selected>5x5</option><option value="6">6x6</option><option value="7">7x7</option></select>
+      <button id="go">gerar</button>
     </div>
+    <div class="who" id="who" hidden><img id="avatar" alt="" width="52" height="52"><div><b id="wName"></b><span id="wRange"></span></div></div>
+    <h1 id="title">Sua semana em música</h1>
+    <div class="stats-line" id="statsLine">digite um usuário e clique em gerar.</div>
+    <div id="status" class="status" role="status" hidden></div>
+    <canvas id="cv" hidden></canvas>
+    <canvas id="wcv" width="1080" height="1920" hidden></canvas>
+  </section>
 
-    <aside id="feature" class="feature" hidden>
+  <section>
+    <aside id="feature" class="card feature" hidden>
       <img id="fImg" alt="">
-      <div>
-        <div class="rank" id="fRank"></div>
-        <h2 id="fName"></h2>
-        <div class="artist" id="fArtist"></div>
-        <div class="plays" id="fPlays"></div>
-        <a id="fLink" target="_blank" rel="noopener">assistir no YouTube</a>
-      </div>
+      <div><div class="rank" id="fRank"></div><h2 id="fName"></h2><div class="muted" id="fArtist"></div><div class="plays" id="fPlays"></div><a id="fLink" target="_blank" rel="noopener">Ouvir no YouTube</a></div>
     </aside>
-  </div>
+    <div class="card"><p class="quote">“Uma semana de descobertas, repetições e boas surpresas.”<small>— week.FM</small></p></div>
+    <div class="card"><h3>Estatísticas</h3><div class="nums"><div><b id="sPlays">–</b><span>plays totais</span></div><div><b id="sArt">–</b><span>artistas únicos</span></div><div><b id="sAlb">–</b><span>álbuns ouvidos</span></div></div></div>
+    <div class="card"><h3>Temas e filtros</h3>
+      <div class="swatches" id="sw">
+        <button data-c="#d0d0d0" style="background:#d0d0d0" aria-label="cinza"></button><button data-c="#e11d2e" style="background:#e11d2e" aria-label="vermelho"></button>
+        <button data-c="#2a2a2a" style="background:#2a2a2a" aria-label="preto"></button><button data-c="#4b3ce0" style="background:#4b3ce0" aria-label="azul"></button>
+        <button data-c="#dd2a7b" style="background:linear-gradient(135deg,#f58529,#dd2a7b,#4b3ce0)" aria-label="degradê"></button>
+      </div>
+      <label class="tg">Mostrar plays nos álbuns <input type="checkbox" id="showPlays" checked></label>
+      <label class="tg">Mostrar textos <input type="checkbox" id="showText" checked></label>
+    </div>
+  </section>
 
-  <footer>feito com a API do Last.fm</footer>
+  <aside class="export" id="media" hidden>
+    <h2>Exportar sua semana</h2>
+    <div class="card"><b>Imagem</b><p>PNG em alta resolução pra compartilhar em qualquer lugar.</p><button id="dl">Baixar imagem</button></div>
+    <div class="card"><b>Vídeo (Wrapped)</b><p>Vídeo animado com a sua semana em música.</p>
+      <button id="wrap" class="ghost">modo Wrapped</button><button data-fmt="9x16" class="ghost">Gerar vídeo 9:16</button><button data-fmt="1x1" class="ghost">Gerar vídeo 1:1</button></div>
+    <div class="card"><b>Instagram Stories</b><p>Formato 9:16 otimizado pra stories.</p><button id="story" class="story">vídeo para Stories</button></div>
+    <div class="card"><b>Copiar link</b><p>Compartilhe sua semana com qualquer pessoa.</p><button id="share" class="ghost">Copiar link</button></div>
+    <div class="hint" id="expHint">vídeo de 15s com o fundo animado e a música.</div>
+  </aside>
+</main>
+
+<div class="player" aria-label="player">
+  <img id="pCover" alt="">
+  <div id="trackInfo">♪</div>
+  <div class="ctl"><button id="pPrev" aria-label="anterior">⏮</button><button id="mute" aria-label="pausar ou tocar">⏸</button><button id="pNext" aria-label="próximo">⏭</button></div>
+  <div class="bar"><i id="pBar"></i></div>
 </div>
 
 <script>
 const $ = (s) => document.querySelector(s);
 const cv = $('#cv'), ctx = cv.getContext('2d');
 let OUT = 1500; // largura da colagem na tela (o download usa 3000)
-let albums = [], imgs = [], n = 5;
+let albums = [], all = [], imgs = [], n = 5;
 
 const proxied = (u) => `/api/img?url=${encodeURIComponent(u)}`;
 const setStatus = (msg, err = false) => {
@@ -198,11 +171,11 @@ async function generate() {
   setWrapped(false); wimgs = null;
   setStatus('carregando…');
   try {
-    const r = await fetch(`/api/albums?user=${encodeURIComponent(user)}&period=${$('#period').value}&limit=${n * n}`);
+    const r = await fetch(`/api/albums?user=${encodeURIComponent(user)}&period=${$('#period').value}&limit=100`);
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || 'erro inesperado');
     if (!data.albums.length) throw new Error('nenhum álbum encontrado nesse período.');
-    albums = data.albums;
+    all = data.albums; albums = all.slice(0, n * n);
     imgs = await Promise.all(albums.map((a) => loadImg(a.cover)));
     await document.fonts.load('700 20px "DM Sans"');
     setStatus('');
@@ -211,6 +184,7 @@ async function generate() {
     highlight(0);
     loadTrack(user);
     if (imgs[0]) setPalette(paletteFrom(imgs[0]));
+    showStats(data);
     history.replaceState(null, '', `?user=${encodeURIComponent(user)}&period=${$('#period').value}&size=${n}`);
   } catch (e) {
     setStatus(e.message, true);
@@ -262,7 +236,8 @@ function highlight(i) {
   const a = albums[i]; if (!a) return;
   $('#feature').hidden = false;
   $('#fImg').src = a.cover ? proxied(a.cover) : '';
-  $('#fRank').textContent = `#${i + 1} do período`;
+  $('#pCover').src = $('#fImg').src; curIdx = i;
+  $('#fRank').textContent = i === 0 ? 'Álbum mais ouvido' : `#${i + 1} do período`;
   $('#fName').textContent = a.name;
   $('#fArtist').textContent = a.artist;
   $('#fPlays').textContent = `${a.plays} plays`;
@@ -295,6 +270,7 @@ function initAudio() {
 }
 const level = (an) => { const d = new Uint8Array(an.frequencyBinCount); an.getByteFrequencyData(d); let s = 0; for (let i = 0; i < 8; i++) s += d[i]; return s / 8 / 255; };
 function pulseLoop() {
+  playerTick();
   document.documentElement.style.setProperty('--pulse', mainSrc ? level(analyser).toFixed(3) : 0);
   requestAnimationFrame(pulseLoop);
 }
@@ -423,7 +399,7 @@ async function exportVideo(fmt, forStory = false, mode = 'normal') {
 document.querySelectorAll('[data-fmt]').forEach((b) => b.addEventListener('click', () => exportVideo(b.dataset.fmt, false, wrapOn ? 'wrapped' : 'normal')));
 $('#mute').addEventListener('click', () => {
   muted = !muted; mainGain.gain.value = muted ? 0 : VOL;
-  $('#mute').textContent = muted ? 'ligar som' : 'silenciar';
+  $('#mute').textContent = muted ? '▶' : '⏸';
 });
 
 /* ---------- CORES DA CAPA ---------- */
@@ -455,7 +431,7 @@ function setPalette(p) {
 function playBuf(b) {
   const old = mainSrc, oldG = srcGain, t = ac.currentTime;
   if (old) { oldG.gain.setTargetAtTime(0, t, .2); setTimeout(() => { try { old.stop(); } catch {} }, 1500); }
-  srcGain = ac.createGain();
+  srcGain = ac.createGain(); pStart = ac.currentTime; pDur = b.duration;
   srcGain.gain.setValueAtTime(0, t);
   srcGain.gain.linearRampToValueAtTime(1, t + FADE);   // entra devagar
   mainSrc = ac.createBufferSource(); mainSrc.buffer = b; mainSrc.loop = true;
@@ -567,6 +543,34 @@ $('#wrap').addEventListener('click', async () => {
   setWrapped(true);
 });
 $('#wcv').addEventListener('click', () => (wT0 = performance.now()));
+
+/* ---------- PAINEL (perfil, estatísticas, player, temas) ---------- */
+let pStart = 0, pDur = 30, curIdx = 0;
+const TITLES = { '7day': 'Sua semana em música', '1month': 'Seu mês em música', '3month': 'Seus 3 meses em música', '6month': 'Seus 6 meses em música', '12month': 'Seu ano em música', overall: 'Sua vida em música' };
+function showStats(d) {
+  const u = $('#user').value.trim(), per = $('#period').value, b = new Date(), a = new Date(b - 6 * 864e5);
+  const plays = all.reduce((s, x) => s + x.plays, 0), arts = new Set(all.map((x) => x.artist)).size;
+  $('#title').textContent = TITLES[per];
+  $('#wName').textContent = u; $('#chipName').textContent = u;
+  $('#wRange').textContent = per === '7day' ? `${a.getDate()} – ${b.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}` : $('#period').selectedOptions[0].text;
+  const av = d.avatar ? proxied(d.avatar) : '';
+  ['#avatar', '#chipImg'].forEach((id) => { $(id).src = av; $(id).hidden = !av; });
+  $('#who').hidden = false;
+  const more = all.length >= 100 ? '+' : '';
+  $('#sPlays').textContent = plays + more; $('#sArt').textContent = arts + more; $('#sAlb').textContent = all.length + more;
+  $('#statsLine').innerHTML = `${all.length}${more} álbuns<i>•</i>${plays}${more} plays<i>•</i>${arts}${more} artistas únicos`;
+  document.body.classList.add('ready');
+}
+function playerTick() {
+  if (mainSrc && ac) $('#pBar').style.width = (((ac.currentTime - pStart) % pDur) / pDur) * 100 + '%';
+}
+const step = (d) => { const i = Math.min(Math.max(curIdx + d, 0), albums.length - 1); highlight(i); playAlbum(i); };
+$('#pPrev').addEventListener('click', () => step(-1));
+$('#pNext').addEventListener('click', () => step(1));
+$('#sw').addEventListener('click', (e) => {
+  const c = e.target.dataset && e.target.dataset.c;
+  if (c) document.documentElement.style.setProperty('--accent', c);
+});
 
 $('#go').addEventListener('click', generate);
 $('#user').addEventListener('keydown', (e) => e.key === 'Enter' && generate());
